@@ -219,22 +219,22 @@
     let words = [];
     let isPaused = false;
 
-    // FONCTION POUR CHARGER LES DONNÉES DEPUIS GOOGLE SHEETS
+    // FONCTION DE CHARGEMENT CORRIGÉE
     async function loadQuestionsFromSheets() {
         try {
             const response = await fetch(SHEET_CSV_URL);
             const data = await response.text();
             
-            // On transforme le CSV en tableau d'objets
-            const rows = data.split('\n').slice(1); // On ignore la ligne de titre
+            // Nettoyage des lignes et split CSV
+            const rows = data.split(/\r?\n/).slice(1); 
             quizData = rows.map(row => {
-                // Gestion simple des colonnes séparées par des virgules
+                // Regex robuste pour gérer les virgules dans les questions
                 const columns = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/); 
                 if (columns.length >= 3) {
                     return {
-                        cat: columns[0].replace(/"/g, '').trim(),
-                        q: columns[1].replace(/"/g, '').trim(),
-                        a: columns[2].replace(/"/g, '').trim()
+                        cat: columns[0].replace(/^"|"$/g, '').trim(),
+                        q: columns[1].replace(/^"|"$/g, '').trim(),
+                        a: columns[2].replace(/^"|"$/g, '').trim()
                     };
                 }
                 return null;
@@ -243,29 +243,83 @@
             console.log("Questions chargées :", quizData.length);
         } catch (error) {
             console.error("Erreur de chargement :", error);
-            alert("Erreur lors du chargement des questions. Vérifie ton lien CSV.");
         }
     }
 
+    // CORRECTION DE L'ERREUR REFERENCEERROR: UPDATESCORE
+    function updateScore() {
+        const scoreElement = document.getElementById('score-val');
+        if (scoreElement) scoreElement.innerText = score;
+    }
+
     async function startQuiz(m) {
-        // On attend que les questions soient chargées avant de démarrer
         if (quizData.length === 0) {
             await loadQuestionsFromSheets();
         }
-        
-        if (quizData.length === 0) return; // Sécurité si le chargement échoue
+        if (quizData.length === 0) return;
 
         mode = m;
         score = 0;
-        updateScore();
+        updateScore(); // Appel de la fonction corrigée
         showScreen('quiz-screen');
         nextQuestion();
     }
 
-    // ... Garde le reste de tes fonctions (goHome, buzz, revealAnswer, etc.) ...
-    // Note : Pense à bien copier les fonctions nextQuestion(), startGradualDisplay(), etc. 
-    // de mon message précédent car elles restent identiques.
+    function nextQuestion() {
+        clearInterval(mainInterval);
+        clearInterval(timerInterval);
+        
+        currentQ = quizData[Math.floor(Math.random() * quizData.length)];
+        
+        // CORRECTION ESPACES : split par n'importe quel espace blanc et filtrage
+        words = currentQ.q.trim().split(/\s+/).filter(w => w.length > 0);
+        wordIndex = 0;
+        isPaused = false;
+
+        document.getElementById('category-name').innerText = currentQ.cat;
+        document.getElementById('question-text').innerText = "";
+        document.getElementById('feedback-area').classList.add('hidden');
+        document.getElementById('timer-bar').style.width = "0%";
+        document.getElementById('timer-label').innerText = "";
+        
+        const zone = document.getElementById('action-zone');
+        zone.innerHTML = "";
+
+        if (mode === 'complete') {
+            document.getElementById('question-text').innerText = currentQ.q;
+            zone.innerHTML = `
+                <input type="text" id="user-answer" placeholder="Votre réponse..." autocomplete="off">
+                <button class="btn-main" onclick="revealAnswer()">VALIDER</button>
+            `;
+            setTimeout(() => document.getElementById('user-answer').focus(), 50);
+        } else {
+            zone.innerHTML = `<button class="buzzer-btn" id="buzzer-ui" onclick="buzz()">BUZZER (ESPACE)</button>`;
+            startGradualDisplay();
+        }
+    }
+
+    function startGradualDisplay() {
+        const speedInput = document.getElementById('word-speed').value;
+        const speed = 1000 / parseFloat(speedInput);
+        
+        mainInterval = setInterval(() => {
+            if (!isPaused) {
+                if (wordIndex < words.length) {
+                    // AJOUT D'ESPACE FORCÉ ENTRE LES MOTS
+                    const container = document.getElementById('question-text');
+                    container.innerText += (wordIndex === 0 ? "" : " ") + words[wordIndex];
+                    wordIndex++;
+                } else {
+                    clearInterval(mainInterval);
+                    startCountdown(5, "Temps écoulé !", () => revealAnswer("PAS DE RÉPONSE"));
+                }
+            }
+        }, speed);
+    }
+
+    // Garde le reste de tes fonctions (buzz, startCountdown, revealAnswer, submitScore, goHome, showScreen)
 </script>
 </body>
 </html>
+
 
