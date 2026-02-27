@@ -206,7 +206,7 @@
 </div>
 
 <script>
-    // COLLE TON LIEN ICI
+    // Ton lien Sheets directement intégré
     const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTN2SJmpbB3yljOO77QVS6mUQUKszo0p0mJSgGK3CE60gJwLlxAAlgf5Eh8EO_8jioiao-QEAki0mjU/pub?output=csv'; 
 
     let quizData = [];
@@ -219,16 +219,13 @@
     let words = [];
     let isPaused = false;
 
-    // FONCTION DE CHARGEMENT CORRIGÉE
+    // CHARGEMENT DES QUESTIONS
     async function loadQuestionsFromSheets() {
         try {
             const response = await fetch(SHEET_CSV_URL);
             const data = await response.text();
-            
-            // Nettoyage des lignes et split CSV
             const rows = data.split(/\r?\n/).slice(1); 
             quizData = rows.map(row => {
-                // Regex robuste pour gérer les virgules dans les questions
                 const columns = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/); 
                 if (columns.length >= 3) {
                     return {
@@ -239,17 +236,29 @@
                 }
                 return null;
             }).filter(item => item !== null && item.q !== "");
-            
             console.log("Questions chargées :", quizData.length);
         } catch (error) {
             console.error("Erreur de chargement :", error);
         }
     }
 
-    // CORRECTION DE L'ERREUR REFERENCEERROR: UPDATESCORE
+    // FONCTION SCORE (RÉPARE L'ERREUR REFERENCEERROR)
     function updateScore() {
         const scoreElement = document.getElementById('score-val');
         if (scoreElement) scoreElement.innerText = score;
+    }
+
+    // FONCTION NAVIGATION (RÉPARE L'ERREUR REFERENCEERROR)
+    function showScreen(id) {
+        document.getElementById('home-screen').classList.add('hidden');
+        document.getElementById('quiz-screen').classList.add('hidden');
+        document.getElementById(id).classList.remove('hidden');
+    }
+
+    function goHome() {
+        clearInterval(mainInterval);
+        clearInterval(timerInterval);
+        showScreen('home-screen');
     }
 
     async function startQuiz(m) {
@@ -260,7 +269,7 @@
 
         mode = m;
         score = 0;
-        updateScore(); // Appel de la fonction corrigée
+        updateScore();
         showScreen('quiz-screen');
         nextQuestion();
     }
@@ -271,7 +280,7 @@
         
         currentQ = quizData[Math.floor(Math.random() * quizData.length)];
         
-        // CORRECTION ESPACES : split par n'importe quel espace blanc et filtrage
+        // Nettoyage des espaces pour éviter les mots collés
         words = currentQ.q.trim().split(/\s+/).filter(w => w.length > 0);
         wordIndex = 0;
         isPaused = false;
@@ -305,9 +314,10 @@
         mainInterval = setInterval(() => {
             if (!isPaused) {
                 if (wordIndex < words.length) {
-                    // AJOUT D'ESPACE FORCÉ ENTRE LES MOTS
+                    // RÉPARATION ESPACES : On ajoute un espace avant chaque mot sauf le premier
                     const container = document.getElementById('question-text');
-                    container.innerText += (wordIndex === 0 ? "" : " ") + words[wordIndex];
+                    const space = wordIndex === 0 ? "" : " ";
+                    container.innerText += space + words[wordIndex];
                     wordIndex++;
                 } else {
                     clearInterval(mainInterval);
@@ -317,9 +327,74 @@
         }, speed);
     }
 
-    // Garde le reste de tes fonctions (buzz, startCountdown, revealAnswer, submitScore, goHome, showScreen)
+    function buzz() {
+        if (isPaused || mode === 'complete') return;
+        isPaused = true;
+        clearInterval(mainInterval);
+        
+        const zone = document.getElementById('action-zone');
+        zone.innerHTML = `<input type="text" id="user-answer" placeholder="Répondez vite..." autocomplete="off">`;
+        
+        const input = document.getElementById('user-answer');
+        input.focus();
+        
+        const y = parseInt(document.getElementById('buzz-timer-val').value);
+        startCountdown(y, "VITE !", () => revealAnswer());
+    }
+
+    function startCountdown(seconds, label, callback) {
+        clearInterval(timerInterval);
+        let timeLeft = seconds * 10;
+        const total = seconds * 10;
+        document.getElementById('timer-label').innerText = label;
+        
+        timerInterval = setInterval(() => {
+            timeLeft--;
+            document.getElementById('timer-bar').style.width = (100 - (timeLeft/total)*100) + "%";
+            
+            if (timeLeft <= 0) {
+                clearInterval(timerInterval);
+                callback();
+            }
+        }, 100);
+    }
+
+    function revealAnswer(forcedValue = null) {
+        clearInterval(mainInterval);
+        clearInterval(timerInterval);
+        
+        const input = document.getElementById('user-answer');
+        const val = forcedValue || (input ? input.value : "Aucune réponse");
+        
+        document.getElementById('action-zone').innerHTML = "";
+        document.getElementById('question-text').innerText = currentQ.q;
+        document.getElementById('your-answer-display').innerText = "Ta réponse : " + val;
+        document.getElementById('correct-answer-text').innerText = currentQ.a;
+        document.getElementById('feedback-area').classList.remove('hidden');
+        document.getElementById('timer-bar').style.width = "0%";
+        document.getElementById('timer-label').innerText = "";
+    }
+
+    function submitScore(pts) {
+        score += pts;
+        updateScore();
+        nextQuestion();
+    }
+
+    // Gestion du clavier
+    window.addEventListener('keydown', (e) => {
+        if (e.code === 'Space' && mode === 'gradual' && !isPaused) {
+            e.preventDefault();
+            buzz();
+        }
+        if (e.key === 'Enter') {
+            const input = document.getElementById('user-answer');
+            if (input) revealAnswer();
+        }
+    });
 </script>
 </body>
 </html>
+
 
 
