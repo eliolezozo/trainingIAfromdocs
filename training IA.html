@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Quiz Culture G - Expert</title>
+    <title>Quiz Culture G - Version Expert</title>
     <style>
         :root {
             --bg: #121212;
@@ -66,14 +66,6 @@
 
         .btn-main { background: var(--accent); color: white; width: 100%; margin-top: 10px; font-size: 1.1rem; }
         .btn-menu { background: #333; color: #ccc; }
-        
-        .category {
-            text-transform: uppercase;
-            font-size: 0.8rem;
-            letter-spacing: 2px;
-            color: #888;
-            margin-bottom: 8px;
-        }
 
         #question-text {
             font-size: 1.4rem;
@@ -81,7 +73,7 @@
             margin: 1.5rem 0;
             line-height: 1.6;
             min-height: 150px;
-            white-space: pre-wrap; /* Pour respecter les espaces */
+            white-space: pre-wrap;
         }
 
         .input-group {
@@ -129,8 +121,6 @@
             box-shadow: 0 4px 0 #8b0000;
         }
 
-        .buzzer-btn:active { box-shadow: none; transform: translateY(4px); }
-
         #feedback-area {
             margin-top: 1rem;
             padding-top: 1rem;
@@ -155,21 +145,28 @@
 
         .hidden { display: none !important; }
         #home-screen { text-align: center; }
+        
+        .shortcut-hint {
+            display: block;
+            font-size: 0.7rem;
+            margin-top: 4px;
+            opacity: 0.7;
+        }
     </style>
 </head>
 <body>
 
 <div id="app">
     <div id="home-screen">
-        <h1 style="color:white; margin-bottom: 30px;">Configuration du Quiz</h1>
+        <h1 style="color:white; margin-bottom: 30px;">Quiz Culture Générale</h1>
         
         <div style="background: #252525; padding: 20px; border-radius: 15px; margin-bottom: 20px;">
             <div class="input-group">
-                <label>Vitesse d'apparition (mots par seconde) :</label>
+                <label>Vitesse d'apparition (mots/sec) :</label>
                 <input type="number" id="word-speed" value="1.5" min="0.5" step="0.5">
             </div>
             <div class="input-group">
-                <label>Délai pour répondre après Buzz (en secondes) :</label>
+                <label>Délai après Buzz (secondes) :</label>
                 <input type="number" id="buzz-timer-val" value="4" min="1">
             </div>
         </div>
@@ -186,27 +183,25 @@
         </div>
 
         <div id="timer-bar-container"><div id="timer-bar"></div></div>
-        <div id="category-name" class="category"></div>
         <div id="question-text"></div>
 
         <div id="action-zone"></div>
 
         <div id="feedback-area" class="hidden">
             <div id="your-answer-display" style="font-style: italic; color: #aaa; margin-bottom: 10px;"></div>
-            <span class="category">Réponse attendue :</span>
+            <span style="text-transform: uppercase; font-size: 0.8rem; letter-spacing: 2px; color: #888;">Réponse attendue :</span>
             <span id="correct-answer-text" class="correct-ans-display"></span>
             
             <div class="eval-grid">
-                <button class="btn-f" onclick="submitScore(-1)">Faux</button>
-                <button class="btn-p" onclick="submitScore(0)">Presque</button>
-                <button class="btn-c" onclick="submitScore(1)">Correct</button>
+                <button class="btn-f" onclick="submitScore(-1)">Faux<span class="shortcut-hint">[1]</span></button>
+                <button class="btn-p" onclick="submitScore(0)">Presque<span class="shortcut-hint">[2]</span></button>
+                <button class="btn-c" onclick="submitScore(1)">Correct<span class="shortcut-hint">[3]</span></button>
             </div>
         </div>
     </div>
 </div>
 
 <script>
-    // Ton lien Sheets directement intégré
     const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTN2SJmpbB3yljOO77QVS6mUQUKszo0p0mJSgGK3CE60gJwLlxAAlgf5Eh8EO_8jioiao-QEAki0mjU/pub?output=csv'; 
 
     let quizData = [];
@@ -218,8 +213,8 @@
     let timerInterval = null;
     let words = [];
     let isPaused = false;
+    let feedbackActive = false; // Pour savoir si on peut utiliser les raccourcis 1, 2, 3
 
-    // CHARGEMENT DES QUESTIONS
     async function loadQuestionsFromSheets() {
         try {
             const response = await fetch(SHEET_CSV_URL);
@@ -236,19 +231,11 @@
                 }
                 return null;
             }).filter(item => item !== null && item.q !== "");
-            console.log("Questions chargées :", quizData.length);
         } catch (error) {
-            console.error("Erreur de chargement :", error);
+            console.error("Erreur CSV :", error);
         }
     }
 
-    // FONCTION SCORE (RÉPARE L'ERREUR REFERENCEERROR)
-    function updateScore() {
-        const scoreElement = document.getElementById('score-val');
-        if (scoreElement) scoreElement.innerText = score;
-    }
-
-    // FONCTION NAVIGATION (RÉPARE L'ERREUR REFERENCEERROR)
     function showScreen(id) {
         document.getElementById('home-screen').classList.add('hidden');
         document.getElementById('quiz-screen').classList.add('hidden');
@@ -261,12 +248,14 @@
         showScreen('home-screen');
     }
 
-    async function startQuiz(m) {
-        if (quizData.length === 0) {
-            await loadQuestionsFromSheets();
-        }
-        if (quizData.length === 0) return;
+    function updateScore() {
+        const scoreElement = document.getElementById('score-val');
+        if (scoreElement) scoreElement.innerText = score;
+    }
 
+    async function startQuiz(m) {
+        if (quizData.length === 0) await loadQuestionsFromSheets();
+        if (quizData.length === 0) return;
         mode = m;
         score = 0;
         updateScore();
@@ -277,15 +266,13 @@
     function nextQuestion() {
         clearInterval(mainInterval);
         clearInterval(timerInterval);
+        feedbackActive = false;
         
         currentQ = quizData[Math.floor(Math.random() * quizData.length)];
-        
-        // Nettoyage des espaces pour éviter les mots collés
         words = currentQ.q.trim().split(/\s+/).filter(w => w.length > 0);
         wordIndex = 0;
         isPaused = false;
 
-        document.getElementById('category-name').innerText = currentQ.cat;
         document.getElementById('question-text').innerText = "";
         document.getElementById('feedback-area').classList.add('hidden');
         document.getElementById('timer-bar').style.width = "0%";
@@ -308,13 +295,12 @@
     }
 
     function startGradualDisplay() {
-        const speedInput = document.getElementById('word-speed').value;
-        const speed = 1000 / parseFloat(speedInput);
+        const speedVal = document.getElementById('word-speed').value;
+        const speed = 1000 / parseFloat(speedVal);
         
         mainInterval = setInterval(() => {
             if (!isPaused) {
                 if (wordIndex < words.length) {
-                    // RÉPARATION ESPACES : On ajoute un espace avant chaque mot sauf le premier
                     const container = document.getElementById('question-text');
                     const space = wordIndex === 0 ? "" : " ";
                     container.innerText += space + words[wordIndex];
@@ -333,13 +319,12 @@
         clearInterval(mainInterval);
         
         const zone = document.getElementById('action-zone');
-        zone.innerHTML = `<input type="text" id="user-answer" placeholder="Répondez vite..." autocomplete="off">`;
-        
+        zone.innerHTML = `<input type="text" id="user-answer" placeholder="Répondez..." autocomplete="off">`;
         const input = document.getElementById('user-answer');
         input.focus();
         
-        const y = parseInt(document.getElementById('buzz-timer-val').value);
-        startCountdown(y, "VITE !", () => revealAnswer());
+        const seconds = parseInt(document.getElementById('buzz-timer-val').value);
+        startCountdown(seconds, "VITE !", () => revealAnswer());
     }
 
     function startCountdown(seconds, label, callback) {
@@ -351,7 +336,6 @@
         timerInterval = setInterval(() => {
             timeLeft--;
             document.getElementById('timer-bar').style.width = (100 - (timeLeft/total)*100) + "%";
-            
             if (timeLeft <= 0) {
                 clearInterval(timerInterval);
                 callback();
@@ -373,28 +357,38 @@
         document.getElementById('feedback-area').classList.remove('hidden');
         document.getElementById('timer-bar').style.width = "0%";
         document.getElementById('timer-label').innerText = "";
+        
+        feedbackActive = true;
     }
 
     function submitScore(pts) {
+        if (!feedbackActive) return;
         score += pts;
         updateScore();
         nextQuestion();
     }
 
-    // Gestion du clavier
+    // GESTION CLAVIER UNIFIÉE
     window.addEventListener('keydown', (e) => {
-        if (e.code === 'Space' && mode === 'gradual' && !isPaused) {
+        // Mode Jeu : Buzz
+        if (e.code === 'Space' && mode === 'gradual' && !isPaused && !feedbackActive) {
             e.preventDefault();
             buzz();
         }
+        
+        // Mode Réponse : Valider
         if (e.key === 'Enter') {
             const input = document.getElementById('user-answer');
-            if (input) revealAnswer();
+            if (input && !feedbackActive) revealAnswer();
+        }
+
+        // Mode Jugement : Raccourcis 1, 2, 3
+        if (feedbackActive) {
+            if (e.key === '1' || e.key === '&') submitScore(-1);
+            if (e.key === '2' || e.key === 'é') submitScore(0);
+            if (e.key === '3' || e.key === '"') submitScore(1);
         }
     });
 </script>
 </body>
 </html>
-
-
-
