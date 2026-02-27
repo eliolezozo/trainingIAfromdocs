@@ -1,0 +1,369 @@
+﻿<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz Culture G - Expert</title>
+    <style>
+        :root {
+            --bg: #121212;
+            --card: #1e1e1e;
+            --text: #e0e0e0;
+            --accent: #3761eb;
+            --success: #1b5e20;
+            --warning: #f57c00;
+            --danger: #c62828;
+            --input-bg: #2d2d2d;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        #app {
+            width: 95%;
+            max-width: 700px;
+            background: var(--card);
+            padding: 2rem;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+            position: relative;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .score-box {
+            font-weight: bold;
+            font-size: 1.2rem;
+            background: var(--accent);
+            padding: 8px 16px;
+            border-radius: 12px;
+            color: white;
+        }
+
+        button {
+            border: none;
+            border-radius: 10px;
+            padding: 12px 20px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+
+        button:active { transform: scale(0.98); }
+
+        .btn-main { background: var(--accent); color: white; width: 100%; margin-top: 10px; font-size: 1.1rem; }
+        .btn-menu { background: #333; color: #ccc; }
+        
+        .category {
+            text-transform: uppercase;
+            font-size: 0.8rem;
+            letter-spacing: 2px;
+            color: #888;
+            margin-bottom: 8px;
+        }
+
+        #question-text {
+            font-size: 1.4rem;
+            font-weight: 500;
+            margin: 1.5rem 0;
+            line-height: 1.6;
+            min-height: 150px;
+        }
+
+        .input-group {
+            margin-bottom: 15px;
+            text-align: left;
+        }
+
+        label { display: block; font-size: 0.85rem; color: #aaa; margin-bottom: 5px; }
+
+        input[type="text"], input[type="number"] {
+            width: 100%;
+            padding: 15px;
+            background: var(--input-bg);
+            border: 2px solid #444;
+            border-radius: 12px;
+            font-size: 1.1rem;
+            color: white;
+            box-sizing: border-box;
+            outline: none;
+        }
+
+        #timer-bar-container {
+            width: 100%;
+            height: 6px;
+            background: #333;
+            border-radius: 3px;
+            margin-bottom: 15px;
+            overflow: hidden;
+        }
+
+        #timer-bar {
+            height: 100%;
+            background: var(--accent);
+            width: 0%;
+            transition: width 0.1s linear;
+        }
+
+        .buzzer-btn {
+            background: var(--danger);
+            color: white;
+            padding: 25px;
+            width: 100%;
+            font-size: 1.6rem;
+            text-transform: uppercase;
+            box-shadow: 0 4px 0 #8b0000;
+        }
+
+        .buzzer-btn:active { box-shadow: none; transform: translateY(4px); }
+
+        #feedback-area {
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid #333;
+        }
+
+        .correct-ans-display {
+            display: block;
+            background: var(--success);
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            font-weight: bold;
+            margin: 15px 0;
+            text-align: center;
+        }
+
+        .eval-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+        .btn-f { background: var(--danger); color: white; }
+        .btn-p { background: var(--warning); color: white; }
+        .btn-c { background: #2e7d32; color: white; }
+
+        .hidden { display: none !important; }
+        #home-screen { text-align: center; }
+    </style>
+</head>
+<body>
+
+<div id="app">
+    <div id="home-screen">
+        <h1 style="color:white; margin-bottom: 30px;">Configuration du Quiz</h1>
+        
+        <div style="background: #252525; padding: 20px; border-radius: 15px; margin-bottom: 20px;">
+            <div class="input-group">
+                <label>Vitesse d'apparition (mots par seconde) :</label>
+                <input type="number" id="word-speed" value="1.5" min="0.5" step="0.5">
+            </div>
+            <div class="input-group">
+                <label>Délai pour répondre après Buzz (en secondes) :</label>
+                <input type="number" id="buzz-timer-val" value="4" min="1">
+            </div>
+        </div>
+
+        <button class="btn-main" onclick="startQuiz('complete')">QUESTIONS COMPLÈTES</button>
+        <button class="btn-main" style="background: #6200ea;" onclick="startQuiz('gradual')">QUESTIONS GRADUELLES</button>
+    </div>
+
+    <div id="quiz-screen" class="hidden">
+        <div class="header">
+            <button class="btn-menu" onclick="goHome()">Menu</button>
+            <div id="timer-label" style="color: var(--warning); font-weight: bold;"></div>
+            <div class="score-box">Score : <span id="score-val">0</span></div>
+        </div>
+
+        <div id="timer-bar-container"><div id="timer-bar"></div></div>
+        <div id="category-name" class="category"></div>
+        <div id="question-text"></div>
+
+        <div id="action-zone"></div>
+
+        <div id="feedback-area" class="hidden">
+            <div id="your-answer-display" style="font-style: italic; color: #aaa; margin-bottom: 10px;"></div>
+            <span class="category">Réponse attendue :</span>
+            <span id="correct-answer-text" class="correct-ans-display"></span>
+            
+            <div class="eval-grid">
+                <button class="btn-f" onclick="submitScore(-1)">Faux</button>
+                <button class="btn-p" onclick="submitScore(0)">Presque</button>
+                <button class="btn-c" onclick="submitScore(1)">Correct</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const quizData = [
+        { cat: "GÉOGRAPHIE", q: "Quel pays possède la plus longue bordure maritime au monde, bordé par les océans Atlantique, Pacifique et Arctique ?", a: "LE CANADA" },
+        { cat: "HISTOIRE", q: "Quel roi de France, surnommé le Roi-Soleil, a fait construire le château de Versailles ?", a: "LOUIS XIV" },
+        { cat: "MUSIQUE", q: "Quel compositeur allemand, devenu sourd à la fin de sa vie, a composé la 9ème Symphonie ?", a: "BEETHOVEN" },
+        { cat: "HISTOIRE", q: "Quel homme d'État français, né à Ajaccio, a été sacré empereur en 1804 ?", a: "NAPOLÉON BONAPARTE" },
+        { cat: "BIOLOGIE", q: "Quel gastéropode est aussi appelé loche quand il est de grande taille ?", a: "LIMACE" },
+        { cat: "LITTÉRATURE", q: "A quel auteur Français doit-on la citation : La science est l’asymptote de la vérité ?", a: "VICTOR HUGO" },
+        { cat: "SPORT AUTO", q: "Quel est le seul pilote de F1 ayant reçu le titre de champion du monde à titre posthume ?", a: "JOCHEN RINDT" },
+        { cat: "ART", q: "Qui a peint le plafond de la chapelle Sixtine ?", a: "MICHEL-ANGE" },
+        { cat: "ESCALADE", q: "Quel est le nom du premier 6a bloc ouvert à Fontainebleau, au Bas-Cuvier ?", a: "LA MARIE-ROSE" },
+        { cat: "SÉRIES TV", q: "Dans quelle série policière suit-on Steve McGarrett à Honolulu ?", a: "HAWAII 5-0" }
+    ];
+
+    let score = 0;
+    let currentQ = null;
+    let mode = 'complete';
+    let wordIndex = 0;
+    let mainInterval = null;
+    let timerInterval = null;
+    let words = [];
+    let isPaused = false;
+
+    function startQuiz(m) {
+        mode = m;
+        score = 0;
+        updateScore();
+        showScreen('quiz-screen');
+        nextQuestion();
+    }
+
+    function goHome() {
+        clearInterval(mainInterval);
+        clearInterval(timerInterval);
+        showScreen('home-screen');
+    }
+
+    function showScreen(id) {
+        document.getElementById('home-screen').classList.add('hidden');
+        document.getElementById('quiz-screen').classList.add('hidden');
+        document.getElementById(id).classList.remove('hidden');
+    }
+
+    function nextQuestion() {
+        clearInterval(mainInterval);
+        clearInterval(timerInterval);
+        currentQ = quizData[Math.floor(Math.random() * quizData.length)];
+        words = currentQ.q.split(' ');
+        wordIndex = 0;
+        isPaused = false;
+
+        document.getElementById('category-name').innerText = currentQ.cat;
+        document.getElementById('question-text').innerText = "";
+        document.getElementById('feedback-area').classList.add('hidden');
+        document.getElementById('timer-bar').style.width = "0%";
+        document.getElementById('timer-label').innerText = "";
+        
+        const zone = document.getElementById('action-zone');
+        zone.innerHTML = "";
+
+        if (mode === 'complete') {
+            document.getElementById('question-text').innerText = currentQ.q;
+            zone.innerHTML = `
+                <input type="text" id="user-answer" placeholder="Votre réponse..." autocomplete="off">
+                <button class="btn-main" onclick="revealAnswer()">VALIDER</button>
+            `;
+            document.getElementById('user-answer').focus();
+        } else {
+            zone.innerHTML = `<button class="buzzer-btn" id="buzzer-ui" onclick="buzz()">BUZZER (ESPACE)</button>`;
+            startGradualDisplay();
+        }
+    }
+
+    function startGradualDisplay() {
+        const speed = 1000 / parseFloat(document.getElementById('word-speed').value);
+        mainInterval = setInterval(() => {
+            if (!isPaused) {
+                if (wordIndex < words.length) {
+                    // Ajout de l'espace ici
+                    document.getElementById('question-text').innerText += words[wordIndex] + " ";
+                    wordIndex++;
+                } else {
+                    clearInterval(mainInterval);
+                    startCountdown(5, "Temps écoulé !", () => revealAnswer("PAS DE RÉPONSE"));
+                }
+            }
+        }, speed);
+    }
+
+    function buzz() {
+        if (isPaused || mode === 'complete') return;
+        isPaused = true;
+        clearInterval(mainInterval);
+        
+        const zone = document.getElementById('action-zone');
+        zone.innerHTML = `<input type="text" id="user-answer" placeholder="Répondez vite..." autocomplete="off">`;
+        
+        const input = document.getElementById('user-answer');
+        input.focus();
+        
+        const y = parseInt(document.getElementById('buzz-timer-val').value);
+        startCountdown(y, "VITE !", () => revealAnswer());
+    }
+
+    function startCountdown(seconds, label, callback) {
+        clearInterval(timerInterval);
+        let timeLeft = seconds * 10;
+        const total = seconds * 10;
+        document.getElementById('timer-label').innerText = label;
+        
+        timerInterval = setInterval(() => {
+            timeLeft--;
+            document.getElementById('timer-bar').style.width = (100 - (timeLeft/total)*100) + "%";
+            
+            if (timeLeft <= 0) {
+                clearInterval(timerInterval);
+                callback();
+            }
+        }, 100);
+    }
+
+    function revealAnswer(forcedValue = null) {
+        clearInterval(mainInterval);
+        clearInterval(timerInterval);
+        
+        const input = document.getElementById('user-answer');
+        const val = forcedValue || (input ? input.value : "Aucune réponse");
+        
+        document.getElementById('action-zone').innerHTML = "";
+        document.getElementById('question-text').innerText = currentQ.q;
+        document.getElementById('your-answer-display').innerText = "Ta réponse : " + val;
+        document.getElementById('correct-answer-text').innerText = currentQ.a;
+        document.getElementById('feedback-area').classList.remove('hidden');
+        document.getElementById('timer-bar').style.width = "0%";
+        document.getElementById('timer-label').innerText = "";
+    }
+
+    function submitScore(pts) {
+        score += pts;
+        updateScore();
+        nextQuestion();
+    }
+
+    function updateScore() {
+        document.getElementById('score-val').innerText = score;
+    }
+
+    // Contrôles Clavier
+    window.addEventListener('keydown', (e) => {
+        if (e.code === 'Space' && mode === 'gradual' && !isPaused) {
+            e.preventDefault();
+            buzz();
+        }
+        if (e.key === 'Enter') {
+            const input = document.getElementById('user-answer');
+            if (input && !input.disabled) {
+                revealAnswer();
+            }
+        }
+    });
+</script>
+</body>
+</html>
