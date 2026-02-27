@@ -206,20 +206,10 @@
 </div>
 
 <script>
-    // Échantillon de questions (provenant de tes documents Drive)
-    const quizData = [
-        { cat: "SPORT AUTO", q: "Quel est le seul pilote de F1 ayant reçu le titre de champion du monde à titre posthume ?", a: "JOCHEN RINDT" },
-        { cat: "LITTÉRATURE", q: "A quel auteur Français doit-on la citation : La science est l’asymptote de la vérité ?", a: "VICTOR HUGO" },
-        { cat: "GÉOGRAPHIE", q: "Quel pays possède la plus longue bordure maritime au monde, bordé par les océans Atlantique, Pacifique et Arctique ?", a: "LE CANADA" },
-        { cat: "HISTOIRE", q: "Quel roi de France, surnommé le Roi-Soleil, a fait construire le château de Versailles ?", a: "LOUIS XIV" },
-        { cat: "MYTHOLOGIE", q: "Quel lieu mythique était traversé par les fleuves Cocyte, Phlégéthon, Léthé et Styx ?", a: "LES ENFERS" },
-        { cat: "BIOLOGIE", q: "Quel gastéropode est aussi appelé loche quand il est de grande taille ?", a: "LIMACE" },
-        { cat: "ESCALADE", q: "Quel est le nom du premier 6a bloc ouvert à Fontainebleau, au Bas-Cuvier ?", a: "LA MARIE-ROSE" },
-        { cat: "ANIME", q: "Quel anime de 1997 suit les aventures de Guts et son épée démesurée ?", a: "BERSERK" },
-        { cat: "GASTRONOMIE", q: "Quel plat provencal, attribué à Louis Ginouvès, est composé d’abats d’agneau mijotés ?", a: "PIEDS PAQUETS" },
-        { cat: "SÉRIES TV", q: "Dans quelle série policière suit-on le commandant Steve McGarrett à Honolulu ?", a: "HAWAII 5-0" }
-    ];
+    // COLLE TON LIEN ICI
+    const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTN2SJmpbB3yljOO77QVS6mUQUKszo0p0mJSgGK3CE60gJwLlxAAlgf5Eh8EO_8jioiao-QEAki0mjU/pub?output=csv'; 
 
+    let quizData = [];
     let score = 0;
     let currentQ = null;
     let mode = 'complete';
@@ -229,7 +219,42 @@
     let words = [];
     let isPaused = false;
 
-    function startQuiz(m) {
+    // FONCTION POUR CHARGER LES DONNÉES DEPUIS GOOGLE SHEETS
+    async function loadQuestionsFromSheets() {
+        try {
+            const response = await fetch(SHEET_CSV_URL);
+            const data = await response.text();
+            
+            // On transforme le CSV en tableau d'objets
+            const rows = data.split('\n').slice(1); // On ignore la ligne de titre
+            quizData = rows.map(row => {
+                // Gestion simple des colonnes séparées par des virgules
+                const columns = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/); 
+                if (columns.length >= 3) {
+                    return {
+                        cat: columns[0].replace(/"/g, '').trim(),
+                        q: columns[1].replace(/"/g, '').trim(),
+                        a: columns[2].replace(/"/g, '').trim()
+                    };
+                }
+                return null;
+            }).filter(item => item !== null && item.q !== "");
+            
+            console.log("Questions chargées :", quizData.length);
+        } catch (error) {
+            console.error("Erreur de chargement :", error);
+            alert("Erreur lors du chargement des questions. Vérifie ton lien CSV.");
+        }
+    }
+
+    async function startQuiz(m) {
+        // On attend que les questions soient chargées avant de démarrer
+        if (quizData.length === 0) {
+            await loadQuestionsFromSheets();
+        }
+        
+        if (quizData.length === 0) return; // Sécurité si le chargement échoue
+
         mode = m;
         score = 0;
         updateScore();
@@ -237,140 +262,10 @@
         nextQuestion();
     }
 
-    function goHome() {
-        clearInterval(mainInterval);
-        clearInterval(timerInterval);
-        showScreen('home-screen');
-    }
-
-    function showScreen(id) {
-        document.getElementById('home-screen').classList.add('hidden');
-        document.getElementById('quiz-screen').classList.add('hidden');
-        document.getElementById(id).classList.remove('hidden');
-    }
-
-    function nextQuestion() {
-        clearInterval(mainInterval);
-        clearInterval(timerInterval);
-        
-        // Sélection d'une nouvelle question
-        currentQ = quizData[Math.floor(Math.random() * quizData.length)];
-        
-        // Split par espaces, puis nettoyage des mots vides (doubles espaces)
-        words = currentQ.q.trim().split(/\s+/);
-        wordIndex = 0;
-        isPaused = false;
-
-        document.getElementById('category-name').innerText = currentQ.cat;
-        document.getElementById('question-text').innerText = "";
-        document.getElementById('feedback-area').classList.add('hidden');
-        document.getElementById('timer-bar').style.width = "0%";
-        document.getElementById('timer-label').innerText = "";
-        
-        const zone = document.getElementById('action-zone');
-        zone.innerHTML = "";
-
-        if (mode === 'complete') {
-            document.getElementById('question-text').innerText = currentQ.q;
-            zone.innerHTML = `
-                <input type="text" id="user-answer" placeholder="Votre réponse..." autocomplete="off">
-                <button class="btn-main" onclick="revealAnswer()">VALIDER</button>
-            `;
-            document.getElementById('user-answer').focus();
-        } else {
-            zone.innerHTML = `<button class="buzzer-btn" id="buzzer-ui" onclick="buzz()">BUZZER (ESPACE)</button>`;
-            startGradualDisplay();
-        }
-    }
-
-    function startGradualDisplay() {
-        const speedInput = document.getElementById('word-speed').value;
-        const speed = 1000 / parseFloat(speedInput);
-        
-        mainInterval = setInterval(() => {
-            if (!isPaused) {
-                if (wordIndex < words.length) {
-                    // AJOUT CRUCIAL : L'espace est ajouté ici explicitement
-                    document.getElementById('question-text').innerText += words[wordIndex] + " ";
-                    wordIndex++;
-                } else {
-                    clearInterval(mainInterval);
-                    startCountdown(5, "Temps écoulé !", () => revealAnswer("PAS DE RÉPONSE"));
-                }
-            }
-        }, speed);
-    }
-
-    function buzz() {
-        if (isPaused || mode === 'complete') return;
-        isPaused = true;
-        clearInterval(mainInterval);
-        
-        const zone = document.getElementById('action-zone');
-        zone.innerHTML = `<input type="text" id="user-answer" placeholder="Répondez vite..." autocomplete="off">`;
-        
-        const input = document.getElementById('user-answer');
-        input.focus();
-        
-        const y = parseInt(document.getElementById('buzz-timer-val').value);
-        startCountdown(y, "VITE !", () => revealAnswer());
-    }
-
-    function startCountdown(seconds, label, callback) {
-        clearInterval(timerInterval);
-        let timeLeft = seconds * 10;
-        const total = seconds * 10;
-        document.getElementById('timer-label').innerText = label;
-        
-        timerInterval = setInterval(() => {
-            timeLeft--;
-            document.getElementById('timer-bar').style.width = (100 - (timeLeft/total)*100) + "%";
-            
-            if (timeLeft <= 0) {
-                clearInterval(timerInterval);
-                callback();
-            }
-        }, 100);
-    }
-
-    function revealAnswer(forcedValue = null) {
-        clearInterval(mainInterval);
-        clearInterval(timerInterval);
-        
-        const input = document.getElementById('user-answer');
-        const val = forcedValue || (input ? input.value : "Aucune réponse");
-        
-        document.getElementById('action-zone').innerHTML = "";
-        document.getElementById('question-text').innerText = currentQ.q;
-        document.getElementById('your-answer-display').innerText = "Ta réponse : " + val;
-        document.getElementById('correct-answer-text').innerText = currentQ.a;
-        document.getElementById('feedback-area').classList.remove('hidden');
-        document.getElementById('timer-bar').style.width = "0%";
-        document.getElementById('timer-label').innerText = "";
-    }
-
-    function submitScore(pts) {
-        score += pts;
-        updateScore();
-        nextQuestion();
-    }
-
-    function updateScore() {
-        document.getElementById('score-val').innerText = score;
-    }
-
-    window.addEventListener('keydown', (e) => {
-        if (e.code === 'Space' && mode === 'gradual' && !isPaused) {
-            e.preventDefault();
-            buzz();
-        }
-        if (e.key === 'Enter') {
-            const input = document.getElementById('user-answer');
-            if (input && !input.disabled) {
-                revealAnswer();
-            }
-        }
-    });
+    // ... Garde le reste de tes fonctions (goHome, buzz, revealAnswer, etc.) ...
+    // Note : Pense à bien copier les fonctions nextQuestion(), startGradualDisplay(), etc. 
+    // de mon message précédent car elles restent identiques.
 </script>
 </body>
 </html>
+
