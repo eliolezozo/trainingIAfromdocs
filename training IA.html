@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
@@ -81,6 +81,7 @@
             margin: 1.5rem 0;
             line-height: 1.6;
             min-height: 150px;
+            white-space: pre-wrap; /* Pour respecter les espaces */
         }
 
         .input-group {
@@ -205,17 +206,18 @@
 </div>
 
 <script>
+    // Échantillon de questions (provenant de tes documents Drive)
     const quizData = [
+        { cat: "SPORT AUTO", q: "Quel est le seul pilote de F1 ayant reçu le titre de champion du monde à titre posthume ?", a: "JOCHEN RINDT" },
+        { cat: "LITTÉRATURE", q: "A quel auteur Français doit-on la citation : La science est l’asymptote de la vérité ?", a: "VICTOR HUGO" },
         { cat: "GÉOGRAPHIE", q: "Quel pays possède la plus longue bordure maritime au monde, bordé par les océans Atlantique, Pacifique et Arctique ?", a: "LE CANADA" },
         { cat: "HISTOIRE", q: "Quel roi de France, surnommé le Roi-Soleil, a fait construire le château de Versailles ?", a: "LOUIS XIV" },
-        { cat: "MUSIQUE", q: "Quel compositeur allemand, devenu sourd à la fin de sa vie, a composé la 9ème Symphonie ?", a: "BEETHOVEN" },
-        { cat: "HISTOIRE", q: "Quel homme d'État français, né à Ajaccio, a été sacré empereur en 1804 ?", a: "NAPOLÉON BONAPARTE" },
+        { cat: "MYTHOLOGIE", q: "Quel lieu mythique était traversé par les fleuves Cocyte, Phlégéthon, Léthé et Styx ?", a: "LES ENFERS" },
         { cat: "BIOLOGIE", q: "Quel gastéropode est aussi appelé loche quand il est de grande taille ?", a: "LIMACE" },
-        { cat: "LITTÉRATURE", q: "A quel auteur Français doit-on la citation : La science est l’asymptote de la vérité ?", a: "VICTOR HUGO" },
-        { cat: "SPORT AUTO", q: "Quel est le seul pilote de F1 ayant reçu le titre de champion du monde à titre posthume ?", a: "JOCHEN RINDT" },
-        { cat: "ART", q: "Qui a peint le plafond de la chapelle Sixtine ?", a: "MICHEL-ANGE" },
         { cat: "ESCALADE", q: "Quel est le nom du premier 6a bloc ouvert à Fontainebleau, au Bas-Cuvier ?", a: "LA MARIE-ROSE" },
-        { cat: "SÉRIES TV", q: "Dans quelle série policière suit-on Steve McGarrett à Honolulu ?", a: "HAWAII 5-0" }
+        { cat: "ANIME", q: "Quel anime de 1997 suit les aventures de Guts et son épée démesurée ?", a: "BERSERK" },
+        { cat: "GASTRONOMIE", q: "Quel plat provencal, attribué à Louis Ginouvès, est composé d’abats d’agneau mijotés ?", a: "PIEDS PAQUETS" },
+        { cat: "SÉRIES TV", q: "Dans quelle série policière suit-on le commandant Steve McGarrett à Honolulu ?", a: "HAWAII 5-0" }
     ];
 
     let score = 0;
@@ -250,8 +252,12 @@
     function nextQuestion() {
         clearInterval(mainInterval);
         clearInterval(timerInterval);
+        
+        // Sélection d'une nouvelle question
         currentQ = quizData[Math.floor(Math.random() * quizData.length)];
-        words = currentQ.q.split(' ');
+        
+        // Split par espaces, puis nettoyage des mots vides (doubles espaces)
+        words = currentQ.q.trim().split(/\s+/);
         wordIndex = 0;
         isPaused = false;
 
@@ -278,11 +284,13 @@
     }
 
     function startGradualDisplay() {
-        const speed = 1000 / parseFloat(document.getElementById('word-speed').value);
+        const speedInput = document.getElementById('word-speed').value;
+        const speed = 1000 / parseFloat(speedInput);
+        
         mainInterval = setInterval(() => {
             if (!isPaused) {
                 if (wordIndex < words.length) {
-                    // Ajout de l'espace ici
+                    // AJOUT CRUCIAL : L'espace est ajouté ici explicitement
                     document.getElementById('question-text').innerText += words[wordIndex] + " ";
                     wordIndex++;
                 } else {
@@ -351,7 +359,6 @@
         document.getElementById('score-val').innerText = score;
     }
 
-    // Contrôles Clavier
     window.addEventListener('keydown', (e) => {
         if (e.code === 'Space' && mode === 'gradual' && !isPaused) {
             e.preventDefault();
